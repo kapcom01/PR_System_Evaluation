@@ -11,10 +11,10 @@
 %
 %   Paradeigma:
 %   --------------------------
-%   [accuracy, c1_t, c1_f, c2_t, c2_f] = ....
+%   [accuracy, balance, c1_t, c1_f, c2_t, c2_f] = ....
 %      evaluate_classifier_LOO('MDC_Classifier',training_set_c1,training_set_c2);
 
-function [accuracy, class1_true, class1_false, class2_true, class2_false] =...
+function [accuracy, balance, class1_true, class1_false, class2_true, class2_false] =...
     evaluate_classifier_LOO(classifier,class1,class2)
 
 class1_true = 0;
@@ -51,8 +51,11 @@ for pattern=1:size(class2,1)
 end
 fprintf('    class2 correctly classified %d of %d\n',class2_true,pattern);
 
-accuracy = (100 * (class1_true+class2_true))/(class1_true+class1_false+class2_true+class2_false);
-fprintf('    Overall Accuracy %f\n',accuracy);
+accuracy1 = class1_true/(class1_true+class1_false);
+accuracy2 = class2_true/(class2_true+class2_false);
+balance = 100 - (norm(accuracy1-accuracy2) *100);
+accuracy = 100*(accuracy1+accuracy2)/2;
+fprintf('    Overall Accuracy %3.2f%% (balanced %3.2f%%)\n',accuracy, balance);
 end
 
 % ======== END LOO ===================

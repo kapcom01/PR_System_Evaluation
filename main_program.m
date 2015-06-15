@@ -153,13 +153,14 @@ function []=PR_system()
         return;
     end
 
-    all_in_one_data = [];
+    all_in_one_accuracy = [];
+    all_in_one_balance = [];
     loading_bar = waitbar(0);
     bar_classifier_counter=0;
 
     for test_classifier = selected_classifiers'
 
-        excel_data = cell(size(features_vectors,2),5);
+        excel_data = cell(size(features_vectors,2),6);
         excel_row_names = cell(1,size(features_vectors,2));
         bar_classifier_counter = bar_classifier_counter+1;
 
@@ -170,7 +171,7 @@ function []=PR_system()
             fprintf('\n%d. Feature Vector [%s]:\n',...
                 i,num2str(features_vectors{i}));
             fprintf(['   Classifier: ' test_classifier{1} '\n']);
-            waitbar(i/size(features_vectors,2) * 1/size(selected_classifiers,1) + (bar_classifier_counter-1)/size(selected_classifiers,1),loading_bar,sprintf('Testing %s...',strrep(test_classifier{1}, '_', ' ')));
+            waitbar(i/size(features_vectors,2) * 1/size(selected_classifiers,1) + (bar_classifier_counter-1)/size(selected_classifiers,1),loading_bar,sprintf('Evaluating %s...',strrep(test_classifier{1}, '_', ' ')));
 
             % set the training set
             training_c1=c1_features(:,features_vectors{i});
@@ -178,16 +179,22 @@ function []=PR_system()
             
             % ====================================================
             % and test classifier's accuracy
-            [accuracy, c1_t, c1_f, c2_t, c2_f] = ....
+            [accuracy, balance, c1_t, c1_f, c2_t, c2_f] = ....
                 evaluate_classifier_LOO(test_classifier{1},training_c1,training_c2);
             % ====================================================
             
             % gather results
-            excel_data(i,:) = {c1_t c1_f c2_t c2_f accuracy};
+            excel_data(i,:) = {c1_t c1_f c2_t c2_f accuracy balance};
             %excel_row_names(i) = {['f' num2str(features_pair(i,1)) '-f' num2str(features_pair(i,2))]};
             excel_row_names(i) = {['[' num2str(features_vectors{i}) ']']};
         end
 
+        % in case there are more than one classifiers selected
+        % gather all data in one table
+        all_in_one_accuracy = [all_in_one_accuracy, [excel_data(:,end-1)]];
+        all_in_one_balance = [all_in_one_balance, [excel_data(:,end)]];
+
+        excel_data = excel_data(:,1:end-1); % remove balance column not to be printed
         % print and save results
         classifier_excel_filename = [results_path test_classifier{1} results_file_extension];
         excel_column_names = {'Class1_T','Class1_F','Class2_T','Class2_F','Overall_Acurracy'};
@@ -195,25 +202,45 @@ function []=PR_system()
         writetable(Excel_Table,classifier_excel_filename,'WriteRowNames', true);
         fprintf('\nData SAVED to %s\n',classifier_excel_filename);
 
-        % in case there are more than one classifiers selected gather all data
-        all_in_one_data = [all_in_one_data, [excel_data(:,end)]];
     end
 
     delete(loading_bar);
 
     message = '';
     % print and save all data
-    if size(all_in_one_data,2)>1
+    if size(all_in_one_accuracy,2)>1
         results_filename = [results_path 'Results' results_file_extension];
         classifierNames(1) = [];
-        Results = array2table(all_in_one_data, 'VariableNames', selected_classifiers, 'RowNames', excel_row_names)
+        Results = array2table(all_in_one_accuracy, 'VariableNames', selected_classifiers, 'RowNames', excel_row_names)
         writetable(Results,results_filename,'WriteRowNames', true);
         fprintf('\nData SAVED to %s\n',results_filename);
-        [a,i]=max(cell2mat(all_in_one_data(:,:)));
+        
+        % ---- Find the Best Pair -----------
+        % the pair with maximum Accuracy
+        % rejecting the unBalanced results
+        all_in_one_accuracy= cell2mat(all_in_one_accuracy);
+        all_in_one_balance=cell2mat(all_in_one_balance);
+        
+        % the balance threshold should be the percentage
+        % of one misclassified pattern
+        if size(c1_features,1) > size(c1_features,1)
+            balance_threshold = 100 * 1/size(c1_features,1);
+        else
+            balance_threshold = 100 * 1/size(c2_features,1);
+        end
+        % or 5%
+        if balance_threshold<5
+            balance_threshold=5;
+        end
+
+        % remove results below threshold
+        all_in_one_accuracy(all_in_one_balance<balance_threshold)=0;
+        % find the max
+        [a,i]=max(all_in_one_accuracy);
         [a,j]=max(a);
+        % print the best
         Best = Results(i(j),j)
         message = {'Best pair:' sprintf('Feature Vector: %s',char(Best.Properties.RowNames)) sprintf('Classifier: %s', char(strrep(Best.Properties.VariableNames, '_', ' ')))};
     end
     waitbar(1, message);
 end
-
