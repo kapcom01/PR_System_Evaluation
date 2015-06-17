@@ -5,49 +5,18 @@ function []=PR_system()
     warning off all
     nntraintool('close');
 
-    results_path = 'Results/';
-    mkdir(results_path);
     addpath('include_functions1');
     addpath('include_functions2');
+
+    results_path = 'Results/';
+    mkdir(results_path);
     results_file_extension = '.csv'; % (sto linux thelei csv)
     
     imagefile1 = 'asymptomatic_roi.bmp';
     imagefile2 = 'symptomatic_ROI.bmp';
     
     classifierNames = getClassifierNames();
-    
-    featureNames={
-        'mean             '
-        'sdandard dev     '
-        'skewness         '
-        'kurtosis         '
-        'Contrast mean    '
-        'Contrast range   '
-        'Corr. mean       '
-        'Corr. range      '
-        'Energy mean      '
-        'Energy range     '
-        'Homogeneity mean '
-        'Homogeneity range'
-        'wave LL mean     '
-        'wave LL std      '
-        'wave HL mean     '
-        'wave HL std      '
-        'wave LH mean     '
-        'wave LH std      '
-        'wave HH mean     '
-        'wave HH std      '
-        'RL SRE mean      '
-        'RL SRE range     '
-        'RL LRE mean      '
-        'RL LRE range     '
-        'RL GLNU mean     '
-        'RL GLNU range    '
-        'RL RLNU mean     '
-        'RL RLNU range    '
-        'RL RP mean       '
-        'RL RP range      '
-        };
+    featureNames=getTexturalFeatureNames();
         
     gui_out = Rois_and_Features_Extraction_GUI(imagefile1, imagefile2);
     
@@ -101,16 +70,17 @@ function []=PR_system()
     fprintf('------------------------\nTotal %d ranked features\n', ranked_counter);
     
     if ranked_counter > 0
+        % if there ranksum test returned results
         % print top ranked in descending order
         [p,top_ranked]=sort(P);
         top_ranked = top_ranked(1:ranked_counter)
-        % select only the ranked features for the exhaustive search
+        % select the ranked features for the exhaustive search
         selected_features = top_ranked;
     else
         % else select all features for the exhaustive search
+        % as a last resort
         selected_features = 1:featureN;
     end
-    
     
     waitbar(0.8,loading_bar,'Creating Feature Vectors (exhaustive search)...');
     features_vectors = {};
@@ -208,39 +178,37 @@ function []=PR_system()
 
     message = '';
     % print and save all data
-    if size(all_in_one_accuracy,2)>1
-        results_filename = [results_path 'Results' results_file_extension];
-        classifierNames(1) = [];
-        Results = array2table(all_in_one_accuracy, 'VariableNames', selected_classifiers, 'RowNames', excel_row_names)
-        writetable(Results,results_filename,'WriteRowNames', true);
-        fprintf('\nData SAVED to %s\n',results_filename);
-        
-        % ---- Find the Best Pair -----------
-        % the pair with maximum Accuracy
-        % rejecting the unBalanced results
-        all_in_one_accuracy= cell2mat(all_in_one_accuracy);
-        all_in_one_balance=cell2mat(all_in_one_balance);
-        
-        % the balance threshold should be the percentage
-        % of one misclassified pattern
-        if size(c1_features,1) > size(c1_features,1)
-            balance_threshold = 100 * 1/size(c1_features,1);
-        else
-            balance_threshold = 100 * 1/size(c2_features,1);
-        end
-        % or 5%
-        if balance_threshold<5
-            balance_threshold=5;
-        end
+    results_filename = [results_path 'Results' results_file_extension];
+    classifierNames(1) = [];
+    Results = array2table(all_in_one_accuracy, 'VariableNames', selected_classifiers, 'RowNames', excel_row_names)
+    writetable(Results,results_filename,'WriteRowNames', true);
+    fprintf('\nData SAVED to %s\n',results_filename);
 
-        % remove results below threshold
-        all_in_one_accuracy(all_in_one_balance<balance_threshold)=0;
-        % find the max
-        [a,i]=max(all_in_one_accuracy);
-        [a,j]=max(a);
-        % print the best
-        Best = Results(i(j),j)
-        message = {'Best pair:' sprintf('Feature Vector: %s',char(Best.Properties.RowNames)) sprintf('Classifier: %s', char(strrep(Best.Properties.VariableNames, '_', ' ')))};
+    % ---- Find the Best Pair -----------
+    % the pair with maximum Accuracy
+    % rejecting the unBalanced results
+    all_in_one_accuracy= cell2mat(all_in_one_accuracy);
+    all_in_one_balance=cell2mat(all_in_one_balance);
+
+    % the balance threshold should be the percentage
+    % of one misclassified pattern
+    if size(c1_features,1) > size(c1_features,1)
+        balance_threshold = 100 * 1/size(c1_features,1);
+    else
+        balance_threshold = 100 * 1/size(c2_features,1);
     end
+    % or 5%
+    if balance_threshold<5
+        balance_threshold=5;
+    end
+
+    % remove results below threshold
+    all_in_one_accuracy(all_in_one_balance<balance_threshold)=0;
+    % find the max
+    [a,i]=max(all_in_one_accuracy);
+    [a,j]=max(a);
+    % print the best
+    Best = Results(i(j),j)
+    message = {'Best pair:' sprintf('Feature Vector: %s',char(Best.Properties.RowNames)) sprintf('Classifier: %s', char(strrep(Best.Properties.VariableNames, '_', ' ')))};
     waitbar(1, message);
 end
