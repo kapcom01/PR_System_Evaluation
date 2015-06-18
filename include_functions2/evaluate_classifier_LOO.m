@@ -81,7 +81,7 @@ function [classified] = classify(classifier, unknown_pattern,class1,class2)
         case 'PNN_Reciprocal'
             [classified]=PNN_classifier(unknown_pattern,class1,class2,'Reciprocal ');
         case 'Logistic_Regression'
-            [classified]=LogReg_classifier(unknown_pattern,class1,class2);
+            [classified]=LogReg_classifier1(unknown_pattern,class1,class2);
         case 'Perceptron_separable'
             [classified]=Perceptron_classifier_separable_classes1(unknown_pattern,class1,class2);
         case 'Perceptron_non_separable'

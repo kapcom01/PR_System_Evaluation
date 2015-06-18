@@ -16,8 +16,10 @@ function []=PR_system()
     imagefile2 = 'symptomatic_ROI.bmp';
     
     classifierNames = getClassifierNames();
-    featureNames=getTexturalFeatureNames();
-        
+    featureNames = getTexturalFeatureNames();
+    
+    %% Extract ROIs and Features
+    %  =========================
     gui_out = Rois_and_Features_Extraction_GUI(imagefile1, imagefile2);
     
     if size(gui_out.class1_features,1)+size(gui_out.class2_features,1) < 2
@@ -29,7 +31,10 @@ function []=PR_system()
     end
     
     loading_bar = waitbar(0);
+
     
+    %% Save classX.dat
+    %  ===============
     % class1
     waitbar(0.2,loading_bar,'Saving Features in class1.dat...');
     for k=1:size(c1_features,1)
@@ -52,12 +57,16 @@ function []=PR_system()
     save('class2.dat','c2_features','-ascii');
     fprintf('Data SAVED in class2.dat\n');
 
+    
+    %% Reduce Features (Wilcoxon test)
+    %  ===============================
     waitbar(0.6,loading_bar,'Reducing features with Wilcoxn Ranksum...');
-    fprintf('\Features Reduced with Wilcoxon rank sum test (0.5 significance level):\n');
+    fprintf('\nFeatures Reduced with Wilcoxon rank sum test (0.5 significance level):\n');
     fprintf('----------------------------------------------------------\n');
     ranked_counter = 0;
     P=[];
     for featureN=1:length(featureNames)
+        % for every feature on each class test the null hypothesis
         [p, h] = ranksum(c1_features(:,featureN), c2_features(:,featureN));
         if (h==1)
             ranked_counter = ranked_counter + 1;
@@ -70,8 +79,8 @@ function []=PR_system()
     fprintf('------------------------\nTotal %d ranked features\n', ranked_counter);
     
     if ranked_counter > 0
-        % if there ranksum test returned results
-        % print top ranked in descending order
+        % if ranksum returned results
+        % print top ranked features in descending order
         [p,top_ranked]=sort(P);
         top_ranked = top_ranked(1:ranked_counter)
         % select the ranked features for the exhaustive search
@@ -82,6 +91,9 @@ function []=PR_system()
         selected_features = 1:featureN;
     end
     
+    
+    %% Exhaustive Search
+    %  =================
     waitbar(0.8,loading_bar,'Creating Feature Vectors (exhaustive search)...');
     features_vectors = {};
 
@@ -101,7 +113,7 @@ function []=PR_system()
         end
     end
     
-    % debug print vectors
+    % print vectors
     fprintf('Feature Vectors (Exhaustive, max length %d):', N)
     for i=1:size(features_vectors,2)
         fprintf('\n%d) [',i)
@@ -112,6 +124,9 @@ function []=PR_system()
     
     delete(loading_bar);
 
+    
+    %% Classifiers Selection Menu
+    %  ==========================
     [selected_classifiers,ok] = listdlg('PromptString','Select Classifier(s) to evaluate:',...
     'SelectionMode','multiple',...
     'ListSize',[250 350],...
@@ -123,6 +138,9 @@ function []=PR_system()
         return;
     end
 
+    
+    %% Evaluate Classifier (Train, Classify, Save Accuracy and Balance)
+    %  ================================================================
     all_in_one_accuracy = [];
     all_in_one_balance = [];
     loading_bar = waitbar(0);
@@ -135,7 +153,7 @@ function []=PR_system()
         bar_classifier_counter = bar_classifier_counter+1;
 
         fprintf(['\nEvaluating ' test_classifier{1} '..\n']);
-        % for every feature pair
+        % for every feature vector
         for i=1:size(features_vectors,2)
             
             fprintf('\n%d. Feature Vector [%s]:\n',...
@@ -143,19 +161,18 @@ function []=PR_system()
             fprintf(['   Classifier: ' test_classifier{1} '\n']);
             waitbar(i/size(features_vectors,2) * 1/size(selected_classifiers,1) + (bar_classifier_counter-1)/size(selected_classifiers,1),loading_bar,sprintf('Evaluating %s...',strrep(test_classifier{1}, '_', ' ')));
 
-            % set the training set
+            % set the training data set
             training_c1=c1_features(:,features_vectors{i});
             training_c2=c2_features(:,features_vectors{i});
             
             % ====================================================
-            % and test classifier's accuracy
+            % evaluate classifier's accuracy
             [accuracy, balance, c1_t, c1_f, c2_t, c2_f] = ....
                 evaluate_classifier_LOO(test_classifier{1},training_c1,training_c2);
             % ====================================================
             
             % gather results
             excel_data(i,:) = {c1_t c1_f c2_t c2_f accuracy balance};
-            %excel_row_names(i) = {['f' num2str(features_pair(i,1)) '-f' num2str(features_pair(i,2))]};
             excel_row_names(i) = {['[' num2str(features_vectors{i}) ']']};
         end
 
@@ -171,11 +188,13 @@ function []=PR_system()
         Excel_Table = array2table(excel_data, 'VariableNames', excel_column_names, 'RowNames', excel_row_names)
         writetable(Excel_Table,classifier_excel_filename,'WriteRowNames', true);
         fprintf('\nData SAVED to %s\n',classifier_excel_filename);
-
     end
 
     delete(loading_bar);
 
+    
+    %% Print Results
+    %  =============
     message = '';
     % print and save all data
     results_filename = [results_path 'Results' results_file_extension];
@@ -187,6 +206,8 @@ function []=PR_system()
     % ---- Find the Best Pair -----------
     % the pair with maximum Accuracy
     % rejecting the unBalanced results
+    % -----------------------------------
+    
     all_in_one_accuracy= cell2mat(all_in_one_accuracy);
     all_in_one_balance=cell2mat(all_in_one_balance);
 
