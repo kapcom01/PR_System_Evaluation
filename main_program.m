@@ -40,7 +40,7 @@ function []=PR_system()
     for k=1:size(c1_features,1)
         fprintf('\nclass: 1  ROI: %d \n',k);    
         for T=1:size(c1_features,2)
-            fprintf('%s:   %f   \n',featureNames{T},c1_features(T));   
+            fprintf('%s:   %f   \n',featureNames{T},c1_features(k,T));   
         end
     end
     save('class1.dat','c1_features','-ascii');
@@ -51,7 +51,7 @@ function []=PR_system()
     for k=1:size(c2_features,1)
         fprintf('\nclass: 2  ROI: %d \n',k);    
         for T=1:size(c2_features,2)
-            fprintf('%s:   %f   \n',featureNames{T},c2_features(T));   
+            fprintf('%s:   %f   \n',featureNames{T},c2_features(k,T));   
         end
     end
     save('class2.dat','c2_features','-ascii');
