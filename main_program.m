@@ -12,24 +12,17 @@ function []=PR_system()
     mkdir(results_path);
     results_file_extension = '.csv'; % (sto linux thelei csv)
     
-    imagefile1 = 'asymptomatic_roi.bmp';
-    imagefile2 = 'symptomatic_ROI.bmp';
+    imagefiles = {'asymptomatic_roi.bmp', 'symptomatic_ROI.bmp'};
+%     imagefile1 = 'asymptomatic_roi.bmp';
+%     imagefile2 = 'symptomatic_ROI.bmp';
     
     classifierNames = getClassifierNames();
     featureNames = getTexturalFeatureNames();
     
     %% Extract ROIs and Features
     %  =========================
-    gui_out = Rois_and_Features_Extraction_GUI(imagefile1, imagefile2);
-    
-    if size(gui_out.class1_features,1)+size(gui_out.class2_features,1) < 2
-        fprintf('Canceled\n');
-        return;
-    else
-        c1_features  = gui_out.class1_features;
-        c2_features  = gui_out.class2_features;
-    end
-    
+    [c1_features c2_features] = Program_TexturalFeaturesFromROIs(imagefiles);
+
     loading_bar = waitbar(0);
 
     
